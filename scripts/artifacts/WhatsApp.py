@@ -4,6 +4,30 @@ import xmltodict
 
 from scripts.artifact_report import ArtifactHtmlReport
 from scripts.ilapfuncs import logfunc, tsv, timeline, is_platform_windows, open_sqlite_db_readonly, does_column_exist_in_db, media_to_html
+utc_timezone = datetime.timezone.utc
+
+def add_data_if_found(map_data, name, label, index, data_type='string', data=None):
+    if data is None:
+        data = []
+
+    if data_type == 'string':
+        value = next((item["#text"] for item in map_data.get("string", []) if item["@name"] == name), None)
+    elif data_type == 'boolean':
+        value = next((item["@value"] == "true" for item in map_data.get("boolean", []) if item["@name"] == name), None)
+    elif data_type == 'long_timestamp':
+        value = next((item["@value"] for item in map_data.get("long", []) if item["@name"] == name), None)
+        if value is not None:
+            try:
+                value = int(value)
+                timestamp_sec = int(value) / 1000.0
+                value = datetime.datetime.fromtimestamp(timestamp_sec, tz=utc_timezone).strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                value = None
+    if value is not None:
+        data.append((label, value, index))
+
+    return data
+
 
 def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
@@ -12,17 +36,17 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
     source_file_wa = ''
     whatsapp_msgstore_db = ''
     whatsapp_wa_db = ''
-    
+
     for file_found in files_found:
 
         file_name = str(file_found)
         if file_name.endswith('msgstore.db'):
-           whatsapp_msgstore_db = str(file_found)
-           source_file_msg = file_found.replace(seeker.directory, '')
+            whatsapp_msgstore_db = str(file_found)
+            source_file_msg = file_found.replace(seeker.directory, '')
 
         if file_name.endswith('wa.db'):
-           whatsapp_wa_db = str(file_found)
-           source_file_wa = file_found.replace(seeker.directory, '')
+            whatsapp_wa_db = str(file_found)
+            source_file_wa = file_found.replace(seeker.directory, '')
 
     db = open_sqlite_db_readonly(whatsapp_wa_db)
     cursor = db.cursor()
@@ -54,7 +78,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
         usageentries = len(all_rows)
     except:
         usageentries = 0
-        
+
     if usageentries > 0:
         report = ArtifactHtmlReport('WhatsApp - Contacts')
         report.start_artifact_report(report_folder, 'WhatsApp - Contacts')
@@ -66,7 +90,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
         report.write_artifact_data_table(data_headers, data_list, file_found)
         report.end_artifact_report()
-        
+
         tsvname = f'WhatsApp - Contacts'
         tsv(report_folder, data_headers, data_list, tsvname, source_file_wa)
 
@@ -77,9 +101,9 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
     db = open_sqlite_db_readonly(whatsapp_msgstore_db)
     cursor = db.cursor()
-    
+
     cursor.execute('''attach database "''' + whatsapp_wa_db + '''" as wadb ''')
-    
+
     try:
         cursor.execute('''
         SELECT
@@ -115,7 +139,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
         usageentries = len(all_rows)
     except:
         usageentries = 0
-        
+
     if usageentries > 0:
         report = ArtifactHtmlReport('WhatsApp - Call Logs')
         report.start_artifact_report(report_folder, 'WhatsApp - Call Logs')
@@ -127,18 +151,18 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
         report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db)
         report.end_artifact_report()
-        
+
         tsvname = f'WhatsApp - Call Logs'
         tsv(report_folder, data_headers, data_list, tsvname, whatsapp_msgstore_db)
 
         tlactivity = f'WhatsApp - Call Logs'
         timeline(report_folder, tlactivity, data_list, data_headers)
-        
+
     else:
         logfunc('No WhatsApp - Call Logs found')
 
     if does_column_exist_in_db(db, 'messages', 'data'):
-        
+
         try:
             cursor.execute('''
             SELECT 
@@ -177,12 +201,12 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             join messages 
             ON messages.key_remote_jid = contact_book_w_groups.jid
             ''')
-            
+
             all_rows = cursor.fetchall()
             usageentries = len(all_rows)
         except:
             usageentries = 0
-            
+
         if usageentries > 0:
             report = ArtifactHtmlReport('WhatsApp - Messages')
             report.start_artifact_report(report_folder, 'WhatsApp - Messages')
@@ -191,22 +215,22 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             data_list = []
             for row in all_rows:
                 data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
-                
+
             report.write_artifact_data_table(data_headers, data_list, file_found)
             report.end_artifact_report()
-            
+
             tsvname = f'WhatsApp - Messages'
             tsv(report_folder, data_headers, data_list, tsvname, source_file_msg)
-            
+
             tlactivity = f'WhatsApp - Messages'
             timeline(report_folder, tlactivity, data_list, data_headers)
-            
+
         else:
             logfunc('No WhatsApp - Messages data available')
 
     #Looks for newly changed column names
     else:
-        
+
         try:
             cursor.execute('''
             SELECT
@@ -264,7 +288,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             usageentries = len(all_rows)
         except:
             usageentries = 0
-            
+
         if usageentries > 0:
             report = ArtifactHtmlReport('WhatsApp - One To One Messages')
             report.start_artifact_report(report_folder, 'WhatsApp - One To One Messages')
@@ -272,25 +296,25 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             data_headers = ('Message Timestamp','Received Timestamp','Other Participant WA User Name','Sending Party JID','Message Direction','Message Type','Message','Media','Local Path To Media','Media File Size','Shared Latitude/Starting Latitude (Live Location)','Shared Longitude/Starting Longitude (Live Location)','Duration Live Location Shared (Seconds)','Final Live Latitude','Final Live Longitude','Final Location Timestamp') # Don't remove the comma, that is required to make this a tuple as there is only 1 element
             data_list = []
             for row in all_rows:
-              
+
                 if row[7] is not None:
-                  mediaident = row[7].split(separator)[-1]
-                  # print(mediaident)
-                  media = media_to_html(mediaident, files_found, report_folder)
+                    mediaident = row[7].split(separator)[-1]
+                    # print(mediaident)
+                    media = media_to_html(mediaident, files_found, report_folder)
                 else:
-                  media = row[7]
-                  
+                    media = row[7]
+
                 data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], media, row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14]))
 
             report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db, html_no_escape=['Media'])
             report.end_artifact_report()
-            
+
             tsvname = f'WhatsApp - One To One Messages'
             tsv(report_folder, data_headers, data_list, tsvname, whatsapp_msgstore_db)
 
             tlactivity = f'WhatsApp - One To One Messages'
             timeline(report_folder, tlactivity, data_list, data_headers)
-            
+
         else:
             logfunc('No WhatsApp - One To One Messages found')
 
@@ -356,7 +380,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             usageentries = len(all_rows)
         except:
             usageentries = 0
-            
+
         if usageentries > 0:
             report = ArtifactHtmlReport('WhatsApp - Group Messages')
             report.start_artifact_report(report_folder, 'WhatsApp - Group Messages')
@@ -364,24 +388,24 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             data_headers = ('Message Timestamp','Received Timestamp','Conversation Name','Sending Party','Sending Party JID','Message Direction','Message Type','Message','Media','Local Path to Media','Media File Size','Shared Latitude/Starting Latitude (Live Location)','Shared Longitude/Starting Longitude (Live Location)','Duration Live Location Shared (Seconds)','Final Live Latitude','Final Live Longitude','Final Location Timestamp') # Don't remove the comma, that is required to make this a tuple as there is only 1 element
             data_list = []
             for row in all_rows:
-              if row[8] is not None:
-                mediaident = row[8].split(separator)[-1]
-                # print(mediaident)
-                media = media_to_html(mediaident, files_found, report_folder)
-              else:
-                media = row[8]
+                if row[8] is not None:
+                    mediaident = row[8].split(separator)[-1]
+                    # print(mediaident)
+                    media = media_to_html(mediaident, files_found, report_folder)
+                else:
+                    media = row[8]
 
-              data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], media, row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15]))
+                data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], media, row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15]))
 
             report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db, html_no_escape=['Media'])
             report.end_artifact_report()
-            
+
             tsvname = f'WhatsApp - Group Messages'
             tsv(report_folder, data_headers, data_list, tsvname, whatsapp_msgstore_db)
 
             tlactivity = f'WhatsApp - Group Messages'
             timeline(report_folder, tlactivity, data_list, data_headers)
-            
+
         else:
             logfunc('No WhatsApp - Group Messages found')
 
@@ -438,46 +462,61 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
         else:
             logfunc('No WhatsApp - Group Details found')
-
+    data = []
+    found_source_file = []
     for file_found in files_found:
-        if('com.whatsapp_preferences_light.xml' in file_found):
-            with open(file_found, encoding='utf-8') as fd:
-                xml_dict = xmltodict.parse(fd.read())
-                string_dict = xml_dict.get('map','').get('string','')
-                data = []
-                for i in range(len(string_dict)):
-                    if(string_dict[i]['@name'] == 'push_name'):                 # User Profile Name
-                        data.append(string_dict[i]['#text'])
-                    if(string_dict[i]['@name'] == 'my_current_status'):         # User Current Status
-                        data.append(string_dict[i]['#text'])
-                    if(string_dict[i]['@name'] == 'version'):                   # User current whatsapp version
-                        data.append(string_dict[i]['#text'])
-                    if(string_dict[i]['@name'] == 'ph'):                        # User Mobile Number
-                        data.append(string_dict[i]['#text'])
-                    if(string_dict[i]['@name'] == 'cc'):                        # User country code
-                        data.append(string_dict[i]['#text'])
+        if('me.jpg' in file_found):
+            profile_media =  media_to_html('me.jpg', files_found, report_folder)
+            data.append(('Profile Picture', profile_media, 0))
+            found_source_file.append(file_found)
+        if('com.whatsapp_preferences_light.xml' in file_found or 'reg_prefs.xml' in file_found or 'register_phone_prefs.xml' in file_found or 'startup_prefs.xml' in file_found):
+            if file_found not in found_source_file:
+                found_source_file.append(file_found)
+                with open(file_found, encoding="utf-8") as file:
+                    xml_data = file.read()
 
-                if(len(data)>0):
-                    report = ArtifactHtmlReport('WhatsApp - User Profile')
-                    report.start_artifact_report(report_folder,'WhatsApp - User Profile')
-                    report.add_script()
-                    data_headers = ('Version', 'Name', 'User Status', 'Country Code', 'Mobile Number')
-                    data_list = []
-                    data_list.append((data[0], data[3], data[2], data[1], data[4]))
-                    report.write_artifact_data_table(data_headers, data_list, file_found, html_escape=False)
-                    report.end_artifact_report()
+                # XML in ein Dictionary umwandeln
+                parsed_data = xmltodict.parse(xml_data)
 
-                    tsvname = "WhatsApp - User Profile"
-                    tsv(report_folder, data_headers, data_list,tsvname)
+                # Das <map>-Element extrahieren
+                map_data = parsed_data.get("map", {})
 
-                else:
-                    logfunc("No WhatsApp - Profile data found")
+                data = add_data_if_found(map_data, "version", "User WA version", 1, data_type='string', data=data)
+                data = add_data_if_found(map_data, "cc", "User country code", 2, data_type='string', data=data)
+                data = add_data_if_found(map_data, "ph", "User mobile number", 3, data_type='string', data=data)
+                data = add_data_if_found(map_data, "push_name", "User push name", 4, data_type='string', data=data)
+                data = add_data_if_found(map_data, "self_display_name", "User display name (e.g own number)", 5, data_type='string', data=data)
+                data = add_data_if_found(map_data, "my_current_status", "User current status", 6, data_type='string', data=data)
+                data = add_data_if_found(map_data, "registration_jid", "User registration JID", 7, data_type='string', data=data)
+                data = add_data_if_found(map_data, "self_lid", "User own LID", 8, data_type='string', data=data)
+                data = add_data_if_found(map_data, "settings_verification_email_address", "User email address", 9, data_type='string', data=data)
+                data = add_data_if_found(map_data, "settings_verification_email_address_verified", "User email address verified", 10, data_type='boolean', data=data)
+                data = add_data_if_found(map_data, "registration_initialized_time", "Time, when registration initialized", 11, data_type='long_timestamp', data=data)
+                data = add_data_if_found(map_data, "registration_success_time_ms", "Time, when registration succeed", 12, data_type='long_timestamp', data=data)
+                data = add_data_if_found(map_data, "gdrive_account_name", "Groogle drive email address for backups", 13, data_type='boolean', data=data)
 
+    if(len(data)>0):
+        report = ArtifactHtmlReport('WhatsApp - User Profile')
+        report.start_artifact_report(report_folder,'WhatsApp - User Profile')
+        report.add_script()
+        data_headers = ('Profile-Settings', 'Value')
+        data_sorted = sorted(data, key=lambda x: int(x[2]))
+        data_list = []
+        for item in data_sorted:
+            data_list.append((item[0], item[1]))
+        report.write_artifact_data_table(data_headers, data_list, found_source_file , html_no_escape=['Value'])
+        report.end_artifact_report()
 
+        tsvname = "WhatsApp - User Profile"
+        tsv(report_folder, data_headers, data_list,tsvname)
+        logfunc("WhatsApp - Profile data found")
+
+    else:
+        logfunc("No WhatsApp - Profile data found")
 
 __artifacts__ = {
     "WhatsApp": (
         "WhatsApp",
-        ('*com.whatsapp*', '*/com.whatsapp/databases/*.db*','*/com.whatsapp/shared_prefs/com.whatsapp_preferences_light.xml','*/com.whatsapp/shared_prefs/startup_prefs.xml','*/com.whatsapp/shared_prefs/reg_prefs.xml','*/WhatsApp Images/*.*','*/WhatsApp Video/*.*'),
+        ('*/data/com.whatsapp/*', '*/com.whatsapp/databases/*.db*','*/com.whatsapp/shared_prefs/*','*/WhatsApp Images/*.*','*/WhatsApp Video/*.*'),
         get_WhatsApp)
 }
