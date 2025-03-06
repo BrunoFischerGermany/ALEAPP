@@ -100,10 +100,12 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
     db.close()
 
     db = open_sqlite_db_readonly(whatsapp_msgstore_db)
+    found_source_file = []
+    found_source_file.append(whatsapp_msgstore_db)
     cursor = db.cursor()
 
     cursor.execute('''attach database "''' + whatsapp_wa_db + '''" as wadb ''')
-
+    found_source_file.append(whatsapp_wa_db)
     try:
         cursor.execute('''
         SELECT
@@ -149,7 +151,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
         for row in all_rows:
             data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
 
-        report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db)
+        report.write_artifact_data_table(data_headers, data_list, found_source_file)
         report.end_artifact_report()
 
         tsvname = f'WhatsApp - Call Logs'
@@ -216,7 +218,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
             for row in all_rows:
                 data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
 
-            report.write_artifact_data_table(data_headers, data_list, file_found)
+            report.write_artifact_data_table(data_headers, data_list, found_source_file)
             report.end_artifact_report()
 
             tsvname = f'WhatsApp - Messages'
@@ -308,7 +310,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
                 data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], media, row[7], row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15]))
 
-            report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db, html_no_escape=['Media'])
+            report.write_artifact_data_table(data_headers, data_list, found_source_file, html_no_escape=['Media'])
             report.end_artifact_report()
 
             tsvname = f'WhatsApp - One To One Messages'
@@ -401,7 +403,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
                 data_list.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], media, row[8], row[9], row[10], row[11], row[12], row[13], row[14], row[15], row[15]))
 
-            report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db, html_no_escape=['Media'])
+            report.write_artifact_data_table(data_headers, data_list, found_source_file, html_no_escape=['Media'])
             report.end_artifact_report()
 
             tsvname = f'WhatsApp - Group Messages'
@@ -455,7 +457,7 @@ def get_WhatsApp(files_found, report_folder, seeker, wrap_text, time_offset):
 
                 data_list.append((row[0], row[1], row[2], row[3], row[4], media))
 
-            report.write_artifact_data_table(data_headers, data_list, whatsapp_msgstore_db, whatsapp_wa_db, html_no_escape=['Creator WA Profile Picture'])
+            report.write_artifact_data_table(data_headers, data_list, found_source_file, whatsapp_wa_db, html_no_escape=['Creator WA Profile Picture'])
             report.end_artifact_report()
 
             tsvname = f'WhatsApp - Group Details'
